@@ -1,0 +1,39 @@
+#Build results
+
+[Dd]ebug/
+
+[Rr]elease/
+
+[Bb]in/
+
+[Oo]bj/
+
+
+
+# Visual Studio
+
+.vs/
+
+*.user
+
+*.suo
+
+*.userosscache
+
+*.sln.docstates
+
+
+
+# NuGet
+
+*.nupkg
+
+project.lock.json
+
+project.assets.json
+
+
+
+# Logs
+
+*.log
