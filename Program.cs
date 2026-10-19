@@ -2,6 +2,7 @@ using TaskManagementApi.Models;
 using Npgsql;
 using TaskManagementApi.Validators;
 using Microsoft.AspNetCore.Http.HttpResults;
+using TaskManagementApi.Extensions;
 
 int stringLength = 200;
 
@@ -45,11 +46,12 @@ app.MapGet("/tasks", async Task<Ok<List<TaskItem>>> (NpgsqlDataSource dataSource
 
     while (await reader.ReadAsync())
     {
-        tasks.Add(new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2)));
+        tasks.Add(reader.ReadTaskItem());
     }
     return TypedResults.Ok(tasks);
 
-}).WithName("GetTasks");
+})
+.WithName("GetTasks");
 
 app.MapGet("/tasks/{id:int}", async Task<Results<Ok<TaskItem>, NotFound>> (NpgsqlDataSource dataSource, int id) =>
 {
@@ -64,10 +66,11 @@ app.MapGet("/tasks/{id:int}", async Task<Results<Ok<TaskItem>, NotFound>> (Npgsq
 
     if (await reader.ReadAsync())
     {
-        return TypedResults.Ok(new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2)));
+        return TypedResults.Ok(reader.ReadTaskItem());
     }
     return TypedResults.NotFound();
-}).WithName("GetTasksID");
+})
+.WithName("GetTasksID");
 
 app.MapDelete("/tasks/{id:int}", async Task<Results<NoContent, NotFound>> (NpgsqlDataSource dataSource, int id) =>
 {
@@ -86,7 +89,8 @@ app.MapDelete("/tasks/{id:int}", async Task<Results<NoContent, NotFound>> (Npgsq
         return TypedResults.NoContent();
     }
 
-}).WithName("DeleteTasks");
+})
+.WithName("DeleteTasks");
 
 app.MapPost("/tasks", async Task<Results<Created<TaskItem>, ProblemHttpResult>> (NpgsqlDataSource dataSource, CreateTaskRequest title) =>
 {
@@ -105,13 +109,13 @@ app.MapPost("/tasks", async Task<Results<Created<TaskItem>, ProblemHttpResult>> 
     await using var reader = await command.ExecuteReaderAsync();
     if (await reader.ReadAsync())
     {
-        var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
-
+        var task = reader.ReadTaskItem();
         return TypedResults.Created($"/tasks/{task.Id}", task);
     }
     return TypedResults.Problem(statusCode: StatusCodes.Status500InternalServerError, title: "InternalServerError", detail: "Не удалось создать задачу.");
 
-}).WithName("PostTasks")
+})
+.WithName("PostTasks")
 .ProducesProblem(StatusCodes.Status500InternalServerError)
 .ProducesProblem(StatusCodes.Status400BadRequest);
 
@@ -136,13 +140,15 @@ app.MapPut("/tasks/{id:int}", async Task<Results<Ok<TaskItem>, ProblemHttpResult
 
     if (await reader.ReadAsync())
     {
-        var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
-
+        var task = reader.ReadTaskItem();
         return TypedResults.Ok(task);
     }
     return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
 
-}).WithName("PutTasksUpdate").ProducesProblem(StatusCodes.Status404NotFound).ProducesProblem(StatusCodes.Status400BadRequest);
+})
+.WithName("PutTasksUpdate")
+.ProducesProblem(StatusCodes.Status404NotFound)
+.ProducesProblem(StatusCodes.Status400BadRequest);
 
 app.MapPatch("/tasks/{id:int}/rename", async Task<Results<Ok<TaskItem>, ProblemHttpResult>> (NpgsqlDataSource dataSource, int id, RenameTaskRequest title) =>
 {
@@ -165,7 +171,7 @@ app.MapPatch("/tasks/{id:int}/rename", async Task<Results<Ok<TaskItem>, ProblemH
 
     if (await reader.ReadAsync())
     {
-        var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
+        var task = reader.ReadTaskItem();
         return TypedResults.Ok(task);
     }
     return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
@@ -194,7 +200,7 @@ app.MapPatch("/tasks/{id:int}/completion", async Task<Results<Ok<TaskItem>, Prob
 
     if (await reader.ReadAsync())
     {
-        var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
+        var task = reader.ReadTaskItem();
         return TypedResults.Ok(task);
     }
     return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
