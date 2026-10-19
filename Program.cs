@@ -1,8 +1,5 @@
 using TaskManagementApi.Models;
 using Npgsql;
-using Microsoft.AspNetCore.Builder;
-using System.Threading.Tasks;
-using System.Runtime.CompilerServices;
 using TaskManagementApi.Validators;
 
 int stringLength = 200;
@@ -15,6 +12,7 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
+builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
@@ -24,6 +22,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseExceptionHandler();
 app.UseHttpsRedirection();
 
 app.MapGet("/", () => "Hy, it's task management!!!");
@@ -84,97 +83,92 @@ app.MapDelete("/tasks/{id:int}", async (NpgsqlDataSource dataSource, int id) =>
 app.MapPost("/tasks", async (NpgsqlDataSource dataSource, CreateTaskRequest title) =>
 {
 
-    if (!string.IsNullOrWhiteSpace(title.Title) && title.Title.Length <= stringLength)
-    {
-        await using var command = dataSource.CreateCommand(
-            """
+    if (string.IsNullOrWhiteSpace(title.Title) || title.Title.Length > stringLength) 
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Bad Request", detail: "Некорректная строка");
+
+    await using var command = dataSource.CreateCommand(
+        """
             INSERT into public.tasks (title) 
             VALUES (@title) 
             RETURNING id, title, is_completed
             """);
-        command.Parameters.AddWithValue("title", title.Title);
+    command.Parameters.AddWithValue("title", title.Title);
 
-        await using var reader = await command.ExecuteReaderAsync();
-        if (await reader.ReadAsync())
-        {
-            var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
-
-            return Results.Created($"/tasks/{task.Id}", task);
-        }
-        return Results.Problem("Не удалось создать задачу.");
-
-    }
-    else
+    await using var reader = await command.ExecuteReaderAsync();
+    if (await reader.ReadAsync())
     {
-        return Results.BadRequest("Некорректная строка");
+        var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
+
+        return Results.Created($"/tasks/{task.Id}", task);
     }
+    return Results.Problem(statusCode: StatusCodes.Status500InternalServerError, title: "InternalServerError", detail: "Не удалось создать задачу.");
 
 }).WithName("PostTasks").WithOpenApi();
 
-app.MapPut("/tasks/{id:int}", async ( int id, NpgsqlDataSource dataSource,ChangeTaskRequest request) =>
+app.MapPut("/tasks/{id:int}", async (int id, NpgsqlDataSource dataSource, ChangeTaskRequest request) =>
 {
-    if (!string.IsNullOrWhiteSpace(request.Title) && request.Title.Length <= stringLength)
-    {
-        await using var command = dataSource.CreateCommand(
-                """
+    if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Length > stringLength) 
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Bad Request", detail: "Некорректная строка");
+
+    await using var command = dataSource.CreateCommand(
+            """
             UPDATE public.tasks 
             SET title = @title, is_completed = @isCompleted
             WHERE id = @id 
             RETURNING id, title, is_completed 
             """);
 
-        command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("title", request.Title);
-        command.Parameters.AddWithValue("isCompleted", request.IsCompleted);
+    command.Parameters.AddWithValue("id", id);
+    command.Parameters.AddWithValue("title", request.Title);
+    command.Parameters.AddWithValue("isCompleted", request.IsCompleted);
 
-        await using var reader = await command.ExecuteReaderAsync();
+    await using var reader = await command.ExecuteReaderAsync();
 
-        if (await reader.ReadAsync())
-        {
-            var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
-
-            return Results.Ok(task);
-        }
-        return Results.NotFound("Не удалось найти задачу.");
-    }
-    else
+    if (await reader.ReadAsync())
     {
-        return Results.BadRequest("Некорректная строка");
+        var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
+
+        return Results.Ok(task);
     }
+    return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
+
 }).WithName("PutTasksUpdate").WithOpenApi();
 
 app.MapPatch("/tasks/{id:int}/rename", async (NpgsqlDataSource dataSource, int id, RenameTaskRequest title) =>
 {
-    if (!string.IsNullOrWhiteSpace(title.Title) && title.Title.Length <= stringLength)
-    {
-        await using var command = dataSource.CreateCommand(
-                """
+
+    if (string.IsNullOrWhiteSpace(title.Title) || title.Title.Length > stringLength) 
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Bad Request", detail: "Некорректная строка");
+
+    await using var command = dataSource.CreateCommand(
+            """
             UPDATE public.tasks 
             SET title = @title
             WHERE id = @id 
             RETURNING id, title, is_completed 
             """);
 
-        command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("title", title.Title);
+    command.Parameters.AddWithValue("id", id);
+    command.Parameters.AddWithValue("title", title.Title);
 
-        await using var reader = await command.ExecuteReaderAsync();
+    await using var reader = await command.ExecuteReaderAsync();
 
-        if (await reader.ReadAsync())
-        {
-            var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
-            return Results.Ok(task);
-        }
-        return Results.NotFound("Не удалось найти задачу.");
-    }
-    else
+    if (await reader.ReadAsync())
     {
-        return Results.BadRequest("Некорректная строка");
+        var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
+        return Results.Ok(task);
     }
+    return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
+
+
 }).WithName("PutTasksReneme").WithOpenApi();
 
 app.MapPatch("/tasks/{id:int}/completion", async (NpgsqlDataSource dataSource, int id, ChangeTaskCompletionRequest isCompleted) =>
 {
+    if (isCompleted.IsCompleted is null)
+        return Results.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Bad Request", detail: "Поле isCompleted обязательно для передачи");
+
+
     await using var command = dataSource.CreateCommand(
             """
             UPDATE public.tasks 
@@ -184,7 +178,7 @@ app.MapPatch("/tasks/{id:int}/completion", async (NpgsqlDataSource dataSource, i
             """);
 
     command.Parameters.AddWithValue("id", id);
-    command.Parameters.AddWithValue("is_completed", isCompleted.IsCompleted);
+    command.Parameters.AddWithValue("is_completed", isCompleted.IsCompleted.Value);
 
     await using var reader = await command.ExecuteReaderAsync();
 
@@ -193,7 +187,7 @@ app.MapPatch("/tasks/{id:int}/completion", async (NpgsqlDataSource dataSource, i
         var task = new TaskItem(reader.GetInt32(0), reader.GetString(1), reader.GetBoolean(2));
         return Results.Ok(task);
     }
-    return Results.NotFound("Не удалось найти задачу.");
+    return Results.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
 }).WithName("ChangeTaskCompletion").WithOpenApi();
 
 app.Run();

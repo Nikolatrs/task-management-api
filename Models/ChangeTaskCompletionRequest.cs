@@ -1,3 +1,6 @@
 namespace TaskManagementApi.Models;
 
-public record ChangeTaskCompletionRequest(bool IsCompleted);
+public record ChangeTaskCompletionRequest()
+{
+    public bool? IsCompleted { get; init; }
+}
