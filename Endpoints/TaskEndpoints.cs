@@ -16,28 +16,25 @@ public static class TaskEndpoints
         tasks.MapGet("/", GetAllTask).WithName("GetTasks");
         tasks.MapGet("/{id:int}", GetTaskID).WithName("GetTaskID");
         tasks.MapDelete("/{id:int}", DeleteTaskID).WithName("DeleteTask");
+
         tasks.MapPost("/", PostTask)
             .WithName("PostTasks")
-            .ProducesProblem(StatusCodes.Status500InternalServerError)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         tasks.MapPut("/{id:int}", PutTaskUpdate)
             .WithName("PutTaskUpdate")
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
-        tasks.MapPatch("/{id:int}/Rename", PatchTaskRename)
-            .WithName("PatchTaskRename")
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
-
-        tasks.MapPatch("/{id:int}/Completion", PatchTaskCompletion)
-            .WithName("PatchTaskCompletion")
-            .ProducesProblem(StatusCodes.Status404NotFound)
-            .ProducesProblem(StatusCodes.Status400BadRequest);
+        tasks.MapPatch("/{id:int}", PatchTask)
+            .WithName("PatchTask")
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
     }
+
 
     private static async Task<Ok<List<TaskItem>>> GetAllTask(NpgsqlDataSource dataSource)
     {
@@ -93,7 +90,7 @@ public static class TaskEndpoints
         }
     }
 
-    private static async Task<Results<Created<TaskItem>, ProblemHttpResult>> PostTask(NpgsqlDataSource dataSource, CreateTaskRequest title)
+    private static async Task<Results<Created<TaskItem>, ProblemHttpResult>> PostTask(NpgsqlDataSource dataSource, PostTaskRequest title)
     {
 
         if (string.IsNullOrWhiteSpace(title.Title) || title.Title.Length > _stringLength)
@@ -118,7 +115,7 @@ public static class TaskEndpoints
             detail: "Не удалось создать задачу.");
     }
 
-    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> PutTaskUpdate(NpgsqlDataSource dataSource, int id, ChangeTaskRequest request)
+    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> PutTaskUpdate(NpgsqlDataSource dataSource, int id, PutTaskRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Length > _stringLength)
             return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Bad Request", detail: "Некорректная строка");
@@ -144,22 +141,38 @@ public static class TaskEndpoints
         }
         return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
     }
-    
-    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> PatchTaskRename(NpgsqlDataSource dataSource, int id, RenameTaskRequest title)
-    {
-        if (string.IsNullOrWhiteSpace(title.Title) || title.Title.Length > _stringLength)
-            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Bad Request", detail: "Некорректная строка");
 
-        await using var command = dataSource.CreateCommand(
-           """
+    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> PatchTask(NpgsqlDataSource dataSource, int id, PatchTaskRequest data)
+    {
+        if (data.Title is null && data.IsCompleted is null)
+            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Не передано ни одного поля для обновления.");
+
+        if (data.Title is not null && string.IsNullOrWhiteSpace(data.Title))
+            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Title не может быть пустым.");
+
+        var sets = new List<string>();
+        var command = dataSource.CreateCommand();
+
+        if (data.Title is not null)
+        {
+            sets.Add("title = @title");
+            command.Parameters.AddWithValue("title", data.Title);
+        }
+
+        if (data.IsCompleted is not null)
+        {
+            sets.Add("is_completed = @is_completed");
+            command.Parameters.AddWithValue("is_completed", data.IsCompleted);
+        }
+
+
+        command.CommandText = $"""
             UPDATE public.tasks 
-            SET title = @title
+            SET {string.Join(", ", sets)}
             WHERE id = @id 
             RETURNING id, title, is_completed 
-            """);
-
+            """;
         command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("title", title.Title);
 
         await using var reader = await command.ExecuteReaderAsync();
 
@@ -169,33 +182,7 @@ public static class TaskEndpoints
             return TypedResults.Ok(task);
         }
         return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
+
     }
 
-    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> PatchTaskCompletion(NpgsqlDataSource dataSource, int id, ChangeTaskCompletionRequest isCompleted)
-    {
-        if (isCompleted.IsCompleted is null)
-            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, 
-                title: "Bad Request", 
-                detail: "Поле isCompleted обязательно для передачи");
-
-        await using var command = dataSource.CreateCommand(
-           """
-            UPDATE public.tasks 
-            SET is_completed = @is_completed
-            WHERE id = @id 
-            RETURNING id, title, is_completed 
-            """);
-
-        command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("is_completed", isCompleted.IsCompleted.Value);
-
-        await using var reader = await command.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
-        {
-            var task = reader.ReadTaskItem();
-            return TypedResults.Ok(task);
-        }
-        return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
-    }
 }
