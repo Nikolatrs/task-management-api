@@ -35,16 +35,15 @@ public static class TaskEndpoints
         return app;
     }
 
-
     private static async Task<Ok<List<TaskItem>>> GetAllTask(NpgsqlDataSource dataSource)
     {
         List<TaskItem> tasks = new();
         await using var command = dataSource.CreateCommand(
             """
-        SELECT id, title, is_completed 
-        FROM public.tasks
-        ORDER BY id ASC
-        """);
+            SELECT id, title, is_completed, created_at, updated_at 
+            FROM public.tasks
+            ORDER BY id ASC
+            """);
         await using var reader = await command.ExecuteReaderAsync();
 
         while (await reader.ReadAsync())
@@ -58,7 +57,7 @@ public static class TaskEndpoints
     {
         await using var command = dataSource.CreateCommand(
             """
-            SELECT id, title, is_completed 
+            SELECT id, title, is_completed, created_at, updated_at 
             FROM public.tasks 
             WHERE id = @id
             """);
@@ -100,7 +99,7 @@ public static class TaskEndpoints
            """
             INSERT into public.tasks (title) 
             VALUES (@title) 
-            RETURNING id, title, is_completed
+            RETURNING id, title, is_completed, created_at, updated_at
             """);
         command.Parameters.AddWithValue("title", title.Title);
 
@@ -123,14 +122,15 @@ public static class TaskEndpoints
         await using var command = dataSource.CreateCommand(
            """
             UPDATE public.tasks 
-            SET title = @title, is_completed = @isCompleted
+            SET title = @title, is_completed = @isCompleted, updated_at = @updated_at
             WHERE id = @id 
-            RETURNING id, title, is_completed 
+            RETURNING id, title, is_completed, created_at, updated_at 
             """);
 
         command.Parameters.AddWithValue("id", id);
         command.Parameters.AddWithValue("title", request.Title);
         command.Parameters.AddWithValue("isCompleted", request.IsCompleted);
+        command.Parameters.AddWithValue("updated_at", DateTime.UtcNow);
 
         await using var reader = await command.ExecuteReaderAsync();
 
@@ -168,11 +168,12 @@ public static class TaskEndpoints
 
         command.CommandText = $"""
             UPDATE public.tasks 
-            SET {string.Join(", ", sets)}
+            SET {string.Join(", ", sets)}, updated_at = @updated_at
             WHERE id = @id 
-            RETURNING id, title, is_completed 
+            RETURNING id, title, is_completed, created_at, updated_at 
             """;
         command.Parameters.AddWithValue("id", id);
+        command.Parameters.AddWithValue("updated_at", DateTime.UtcNow);
 
         await using var reader = await command.ExecuteReaderAsync();
 
