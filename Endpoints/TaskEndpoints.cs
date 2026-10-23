@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Npgsql;
-using TaskManagementApi.Extensions;
 using TaskManagementApi.Models;
+using TaskManagementApi.Repositories;
 
 
 namespace TaskManagementApi.Endpoints;
@@ -17,12 +16,12 @@ public static class TaskEndpoints
         tasks.MapGet("/{id:int}", GetTaskID).WithName("GetTaskID");
         tasks.MapDelete("/{id:int}", DeleteTaskID).WithName("DeleteTask");
 
-        tasks.MapPost("/", PostTask)
+        tasks.MapPost("/", Create)
             .WithName("PostTasks")
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
-        tasks.MapPut("/{id:int}", PutTaskUpdate)
+        tasks.MapPut("/{id:int}", Update)
             .WithName("PutTaskUpdate")
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -35,114 +34,48 @@ public static class TaskEndpoints
         return app;
     }
 
-    private static async Task<Ok<List<TaskItem>>> GetAllTask(NpgsqlDataSource dataSource)
+    private static async Task<Ok<List<TaskItem>>> GetAllTask(ITaskRepository repository)
     {
-        List<TaskItem> tasks = new();
-        await using var command = dataSource.CreateCommand(
-            """
-            SELECT id, title, is_completed, created_at, updated_at 
-            FROM public.tasks
-            ORDER BY id ASC
-            """);
-        await using var reader = await command.ExecuteReaderAsync();
-
-        while (await reader.ReadAsync())
-        {
-            tasks.Add(reader.ReadTaskItem());
-        }
+        var tasks = await repository.GetAllAsync();
         return TypedResults.Ok(tasks);
     }
 
-    private static async Task<Results<Ok<TaskItem>, NotFound>> GetTaskID(NpgsqlDataSource dataSource, int id)
+    private static async Task<Results<Ok<TaskItem>, NotFound>> GetTaskID(ITaskRepository repository, int id)
     {
-        await using var command = dataSource.CreateCommand(
-            """
-            SELECT id, title, is_completed, created_at, updated_at 
-            FROM public.tasks 
-            WHERE id = @id
-            """);
-        command.Parameters.AddWithValue("id", id);
-        await using var reader = await command.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
-        {
-            return TypedResults.Ok(reader.ReadTaskItem());
-        }
-        return TypedResults.NotFound();
+        var task = await repository.GetByIDAsync(id);
+        return task is null ? TypedResults.NotFound(): TypedResults.Ok(task);
     }
 
-    private static async Task<Results<NoContent, NotFound>> DeleteTaskID(NpgsqlDataSource dataSource, int id)
+    private static async Task<Results<NoContent, NotFound>> DeleteTaskID(ITaskRepository repository, int id)
     {
-        await using var command = dataSource.CreateCommand(
-            """
-            DELETE FROM public.tasks 
-            WHERE id = @id;
-            """);
-        command.Parameters.AddWithValue("id", id);
-        if (await command.ExecuteNonQueryAsync() == 0)
-        {
-            return TypedResults.NotFound();
-        }
-        else
-        {
-            return TypedResults.NoContent();
-        }
+        var isDeleted = await repository.DeleteAsync(id);
+        return isDeleted ? TypedResults.NoContent(): TypedResults.NotFound();
     }
 
-    private static async Task<Results<Created<TaskItem>, ProblemHttpResult>> PostTask(NpgsqlDataSource dataSource, PostTaskRequest title)
+    private static async Task<Results<Created<TaskItem>, ProblemHttpResult>> Create(ITaskRepository repository, PostTaskRequest title)
     {
 
         if (string.IsNullOrWhiteSpace(title.Title) || title.Title.Length > _stringLength)
             return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Bad Request", detail: "Некорректная строка");
 
-        await using var command = dataSource.CreateCommand(
-           """
-            INSERT into public.tasks (title) 
-            VALUES (@title) 
-            RETURNING id, title, is_completed, created_at, updated_at
-            """);
-        command.Parameters.AddWithValue("title", title.Title);
-
-        await using var reader = await command.ExecuteReaderAsync();
-        if (await reader.ReadAsync())
-        {
-            var task = reader.ReadTaskItem();
-            return TypedResults.Created($"/tasks/{task.Id}", task);
-        }
-        return TypedResults.Problem(statusCode: StatusCodes.Status500InternalServerError,
-            title: "InternalServerError",
-            detail: "Не удалось создать задачу.");
+        var createdTask = await repository.CreateAsync(title);
+        return TypedResults.Created($"/tasks/{createdTask.Id}", createdTask);
     }
 
-    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> PutTaskUpdate(NpgsqlDataSource dataSource, int id, PutTaskRequest request)
+    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> Update(ITaskRepository repository, int id, PutTaskRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Length > _stringLength)
-            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Bad Request", detail: "Некорректная строка");
+            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest,
+                title: "Bad Request",
+                detail: "Некорректная строка");
 
-        await using var command = dataSource.CreateCommand(
-           """
-            UPDATE public.tasks 
-            SET title = @title, is_completed = @isCompleted, updated_at = @updated_at
-            WHERE id = @id 
-            RETURNING id, title, is_completed, created_at, updated_at 
-            """);
-
-        command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("title", request.Title);
-        command.Parameters.AddWithValue("isCompleted", request.IsCompleted);
-        command.Parameters.AddWithValue("updated_at", DateTime.UtcNow);
-
-        await using var reader = await command.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
-        {
-            var task = reader.ReadTaskItem();
-            return TypedResults.Ok(task);
-        }
-        return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
+        var task = await repository.UpdateAsync(id, request);
+        return task is null
+            ? TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.")
+            : TypedResults.Ok(task);
     }
 
-    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> PatchTask(NpgsqlDataSource dataSource, int id, PatchTaskRequest data)
+    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> PatchTask(ITaskRepository repository, int id, PatchTaskRequest data)
     {
         if (data.Title is null && data.IsCompleted is null)
             return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Не передано ни одного поля для обновления.");
@@ -150,40 +83,10 @@ public static class TaskEndpoints
         if (data.Title is not null && string.IsNullOrWhiteSpace(data.Title))
             return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Title не может быть пустым.");
 
-        var sets = new List<string>();
-        var command = dataSource.CreateCommand();
+        var task = await repository.PatchAsync(id, data);
 
-        if (data.Title is not null)
-        {
-            sets.Add("title = @title");
-            command.Parameters.AddWithValue("title", data.Title);
-        }
-
-        if (data.IsCompleted is not null)
-        {
-            sets.Add("is_completed = @is_completed");
-            command.Parameters.AddWithValue("is_completed", data.IsCompleted);
-        }
-
-
-        command.CommandText = $"""
-            UPDATE public.tasks 
-            SET {string.Join(", ", sets)}, updated_at = @updated_at
-            WHERE id = @id 
-            RETURNING id, title, is_completed, created_at, updated_at 
-            """;
-        command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("updated_at", DateTime.UtcNow);
-
-        await using var reader = await command.ExecuteReaderAsync();
-
-        if (await reader.ReadAsync())
-        {
-            var task = reader.ReadTaskItem();
-            return TypedResults.Ok(task);
-        }
-        return TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.");
-
+        return task is null
+           ? TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.")
+           : TypedResults.Ok(task);
     }
-
 }
