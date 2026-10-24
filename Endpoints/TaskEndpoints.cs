@@ -1,3 +1,4 @@
+using FluentValidation;
 using Microsoft.AspNetCore.Http.HttpResults;
 using TaskManagementApi.Models;
 using TaskManagementApi.Repositories;
@@ -16,18 +17,20 @@ public static class TaskEndpoints
         tasks.MapGet("/{id:int}", GetTaskID).WithName("GetTaskID");
         tasks.MapDelete("/{id:int}", DeleteTaskID).WithName("DeleteTask");
 
-        tasks.MapPost("/", Create)
+        tasks.MapPost("/", CreateTask)
             .WithName("PostTasks")
-            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
-        tasks.MapPut("/{id:int}", Update)
+        tasks.MapPut("/{id:int}", UpdateTask)
             .WithName("PutTaskUpdate")
+            .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         tasks.MapPatch("/{id:int}", PatchTask)
             .WithName("PatchTask")
+            .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
@@ -52,22 +55,21 @@ public static class TaskEndpoints
         return isDeleted ? TypedResults.NoContent(): TypedResults.NotFound();
     }
 
-    private static async Task<Results<Created<TaskItem>, ProblemHttpResult>> Create(ITaskRepository repository, PostTaskRequest title)
+    private static async Task<Results<Created<TaskItem>, ValidationProblem>> CreateTask(ITaskRepository repository, PostTaskRequest title, IValidator<PostTaskRequest> validator)
     {
-
-        if (string.IsNullOrWhiteSpace(title.Title) || title.Title.Length > _stringLength)
-            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, title: "Bad Request", detail: "Некорректная строка");
+        var validationResult = await validator.ValidateAsync(title);
+        if (!validationResult.IsValid)
+            return TypedResults.ValidationProblem(validationResult.ToDictionary());
 
         var createdTask = await repository.CreateAsync(title);
         return TypedResults.Created($"/tasks/{createdTask.Id}", createdTask);
     }
 
-    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> Update(ITaskRepository repository, int id, PutTaskRequest request)
+    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult, ValidationProblem>> UpdateTask(ITaskRepository repository, int id, PutTaskRequest request, IValidator<PutTaskRequest> validator)
     {
-        if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Length > _stringLength)
-            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest,
-                title: "Bad Request",
-                detail: "Некорректная строка");
+        var validationResult = await validator.ValidateAsync(request);
+        if (!validationResult.IsValid)
+            return TypedResults.ValidationProblem(validationResult.ToDictionary());
 
         var task = await repository.UpdateAsync(id, request);
         return task is null
@@ -75,13 +77,11 @@ public static class TaskEndpoints
             : TypedResults.Ok(task);
     }
 
-    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> PatchTask(ITaskRepository repository, int id, PatchTaskRequest data)
+    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult, ValidationProblem>> PatchTask(ITaskRepository repository, int id, PatchTaskRequest data, IValidator<PatchTaskRequest> validator)
     {
-        if (data.Title is null && data.IsCompleted is null)
-            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Не передано ни одного поля для обновления.");
-
-        if (data.Title is not null && string.IsNullOrWhiteSpace(data.Title))
-            return TypedResults.Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Title не может быть пустым.");
+        var validationResult = await validator.ValidateAsync(data);
+        if (!validationResult.IsValid)
+            return TypedResults.ValidationProblem(validationResult.ToDictionary());
 
         var task = await repository.PatchAsync(id, data);
 

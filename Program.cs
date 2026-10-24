@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using TaskManagementApi.Extensions;
 using TaskManagementApi.Endpoints;
 using TaskManagementApi.Repositories;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
 builder.Services.AddProblemDetails();
 builder.Services.AddScoped<ITaskRepository, NpgsqlTaskRepository>();
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
 var app = builder.Build();
 
