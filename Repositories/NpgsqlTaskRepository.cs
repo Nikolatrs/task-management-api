@@ -100,7 +100,7 @@ public class NpgsqlTaskRepository : ITaskRepository
     public async Task<TaskItem?> PatchAsync(int id, PatchTaskRequest request)
     {
         var sets = new List<string>();
-        var command = _dataSource.CreateCommand();
+        await using var command = _dataSource.CreateCommand();
 
         if (request.Title is not null)
         {

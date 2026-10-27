@@ -2,5 +2,5 @@ namespace TaskManagementApi.Common;
 
 public static class ValidationConstants
 {
-    public const int MaxBookTitleLength = 200;
+    public const int MaxTitleLength = 200;
 }
