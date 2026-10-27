@@ -7,8 +7,6 @@ using TaskManagementApi.Repositories;
 namespace TaskManagementApi.Endpoints;
 public static class TaskEndpoints
 {
-    private static int _stringLength = 200;
-
     public static IEndpointRouteBuilder MapTaskEndpoints(this IEndpointRouteBuilder app)
     {
         var tasks = app.MapGroup("/tasks").WithTags("Tasks");
@@ -73,7 +71,7 @@ public static class TaskEndpoints
 
         var task = await repository.UpdateAsync(id, request);
         return task is null
-            ? TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.")
+            ? TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "РќРµ СѓРґР°Р»РѕСЃСЊ РЅР°Р№С‚Рё Р·Р°РґР°С‡Сѓ.")
             : TypedResults.Ok(task);
     }
 
@@ -86,7 +84,7 @@ public static class TaskEndpoints
         var task = await repository.PatchAsync(id, data);
 
         return task is null
-           ? TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.")
+           ? TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "РќРµ СѓРґР°Р»РѕСЃСЊ РЅР°Р№С‚Рё Р·Р°РґР°С‡Сѓ.")
            : TypedResults.Ok(task);
     }
 }

@@ -1,8 +1,4 @@
-using TaskManagementApi.Models;
 using Npgsql;
-using TaskManagementApi.Validators;
-using Microsoft.AspNetCore.Http.HttpResults;
-using TaskManagementApi.Extensions;
 using TaskManagementApi.Endpoints;
 using TaskManagementApi.Repositories;
 using FluentValidation;
