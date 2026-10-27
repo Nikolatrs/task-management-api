@@ -1,7 +1,7 @@
 -- init.sql
--- Схема БД для приложения "TaskManagementApi"
--- Запуск: psql -d taskmanagement_test -f db/init.sql
--- Идемпотентен: можно выполнить многократно
+-- РЎС…РµРјР° Р‘Р” РґР»СЏ РїСЂРёР»РѕР¶РµРЅРёСЏ "TaskManagementApi"
+-- Р—Р°РїСѓСЃРє: psql -d taskmanagement_test -f db/init.sql
+-- РРґРµРјРїРѕС‚РµРЅС‚РµРЅ: РјРѕР¶РЅРѕ РІС‹РїРѕР»РЅРёС‚СЊ РјРЅРѕРіРѕРєСЂР°С‚РЅРѕ
 
 BEGIN;
 

@@ -9,11 +9,11 @@ public class PatchTaskRequestValidator : AbstractValidator<PatchTaskRequest>
     {
         RuleFor(x => x)
             .Must(x => x.Title is not null || x.IsCompleted is not null)
-            .WithMessage("Не передано ни одного поля для обновления.");
+            .WithMessage("РќРµ РїРµСЂРµРґР°РЅРѕ РЅРё РѕРґРЅРѕРіРѕ РїРѕР»СЏ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ.");
 
         RuleFor(x => x.Title)
-            .NotEmpty().WithMessage("Название не может быть пустым")
-            .MaximumLength(ValidationConstants.MaxBookTitleLength).WithMessage("Название слишком Длинное")
+            .NotEmpty().WithMessage("РќР°Р·РІР°РЅРёРµ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј")
+            .MaximumLength(ValidationConstants.MaxTitleLength).WithMessage("РќР°Р·РІР°РЅРёРµ СЃР»РёС€РєРѕРј Р”Р»РёРЅРЅРѕРµ")
             .When(x => x.Title is not null);
     }
 }

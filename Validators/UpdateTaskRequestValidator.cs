@@ -8,7 +8,7 @@ public class UpdateTaskRequestValidator : AbstractValidator<PutTaskRequest>
     public UpdateTaskRequestValidator()
     {
         RuleFor(x => x.Title)
-            .NotEmpty().WithMessage("Название не может быть пустым")
-            .MaximumLength(ValidationConstants.MaxBookTitleLength).WithMessage("Название слишком Длинное");
+            .NotEmpty().WithMessage("РќР°Р·РІР°РЅРёРµ РЅРµ РјРѕР¶РµС‚ Р±С‹С‚СЊ РїСѓСЃС‚С‹Рј")
+            .MaximumLength(ValidationConstants.MaxTitleLength).WithMessage("РќР°Р·РІР°РЅРёРµ СЃР»РёС€РєРѕРј Р”Р»РёРЅРЅРѕРµ");
     }
 }
