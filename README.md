@@ -93,7 +93,7 @@ dotnet run
 | POST | `/tasks` | Создать задачу |
 | PUT | `/tasks/{id}` | Обновить задачу |
 | DELETE | `/tasks/{id}` | Удалить задачу |
-| PATCH | `/tasks/{id}` | Переименовать задачу |
+| PATCH | `/tasks/{id}` | Частично обновить задачу |
 
 ### Примеры запросов
 
@@ -123,7 +123,7 @@ curl -X 'DELETE' \
 
 **Изменить задачу**
 
-```
+```bash
 curl -X 'PATCH' \
   'http://localhost:5004/tasks/3' \
   -H 'Content-Type: application/json' \
@@ -134,22 +134,14 @@ curl -X 'PATCH' \
 
 ```text
 task-management-api/
-├── Properties/       # Настройки запуска
-├── db/               # SQL-схема
-├── Models/           # DTO и сущности
-├── .editorconfig     # Настройки проекта
-├── Program.cs        # Точка входа
-└── README.md
-
-C:\ASP\TASKMANAGEMENTAPI
 │───Common/           # Общие Константы (например лимиты валидации)
-├───Endpoints/        # Эндпинты /Tasks (Minimal API)
+├───Endpoints/        # Эндпоинты /Tasks (Minimal API)
 ├───Extensions/       # Вспомогательные методы
 ├───Models/           # DTO и сущности
 ├───Properties/       # Настройки запуска
-├───Repositories/     # ДОступ к БД (интерфейс реализация на Npgsql)
+├───Repositories/     # Доступ к БД (интерфейс реализация на Npgsql)
 ├───db/               # SQL-схема
-├───Validators/       # Волидация ввода
+├───Validators/       # Валидация ввода
 ├───.editorconfig     # Настройки проекта
 ├───Program.cs        # Точка входа
 └───README.md
