@@ -30,7 +30,7 @@ public class NpgsqlTaskRepository : ITaskRepository
         return tasks;
     }
 
-    public async Task<TaskItem?> GetByIDAsync(int id)
+    public async Task<TaskItem?> GetByIdAsync(int id)
     {
         await using var command = _dataSource.CreateCommand(
     """
@@ -79,7 +79,7 @@ public class NpgsqlTaskRepository : ITaskRepository
         await using var command = _dataSource.CreateCommand(
           """
             UPDATE public.tasks 
-            SET title = @title, is_completed = @isCompleted, updated_at = @updated_at
+            SET title = @title, is_completed = @isCompleted, updated_at = new()
             WHERE id = @id 
             RETURNING id, title, is_completed, created_at, updated_at 
             """);
@@ -87,7 +87,6 @@ public class NpgsqlTaskRepository : ITaskRepository
         command.Parameters.AddWithValue("id", id);
         command.Parameters.AddWithValue("title", request.Title);
         command.Parameters.AddWithValue("isCompleted", request.IsCompleted);
-        command.Parameters.AddWithValue("updated_at", DateTime.UtcNow);
 
         await using var reader = await command.ExecuteReaderAsync();
         if (await reader.ReadAsync())
@@ -118,12 +117,11 @@ public class NpgsqlTaskRepository : ITaskRepository
 
         command.CommandText = $"""
             UPDATE public.tasks 
-            SET {string.Join(", ", sets)}, updated_at = @updated_at
+            SET {string.Join(", ", sets)}, updated_at = new()
             WHERE id = @id 
             RETURNING id, title, is_completed, created_at, updated_at 
             """;
         command.Parameters.AddWithValue("id", id);
-        command.Parameters.AddWithValue("updated_at", DateTime.UtcNow);
 
         await using var reader = await command.ExecuteReaderAsync();
 

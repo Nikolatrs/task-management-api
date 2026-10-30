@@ -11,17 +11,17 @@ public static class TaskEndpoints
     {
         var tasks = app.MapGroup("/tasks").WithTags("Tasks");
 
-        tasks.MapGet("/", GetAllTask).WithName("GetTasks");
-        tasks.MapGet("/{id:int}", GetTaskID).WithName("GetTaskID");
-        tasks.MapDelete("/{id:int}", DeleteTaskID).WithName("DeleteTask");
+        tasks.MapGet("/", GetAllTasks).WithName("GetAllTasks");
+        tasks.MapGet("/{id:int}", GetTaskById).WithName("GetTaskById");
+        tasks.MapDelete("/{id:int}", DeleteTaskID).WithName("DeleteTaskID");
 
         tasks.MapPost("/", CreateTask)
-            .WithName("PostTasks")
+            .WithName("CreateTask")
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status500InternalServerError);
 
         tasks.MapPut("/{id:int}", UpdateTask)
-            .WithName("PutTaskUpdate")
+            .WithName("UpdateTask")
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
@@ -35,31 +35,31 @@ public static class TaskEndpoints
         return app;
     }
 
-    private static async Task<Ok<List<TaskItem>>> GetAllTask(ITaskRepository repository)
+    private static async Task<Ok<List<TaskItem>>> GetAllTasks(ITaskRepository repository)
     {
         var tasks = await repository.GetAllAsync();
         return TypedResults.Ok(tasks);
     }
 
-    private static async Task<Results<Ok<TaskItem>, NotFound>> GetTaskID(ITaskRepository repository, int id)
+    private static async Task<Results<Ok<TaskItem>, ProblemHttpResult>> GetTaskById(ITaskRepository repository, int id)
     {
-        var task = await repository.GetByIDAsync(id);
-        return task is null ? TypedResults.NotFound(): TypedResults.Ok(task);
+        var task = await repository.GetByIdAsync(id);
+        return task is null ? TaskNotFound(id) : TypedResults.Ok(task);
     }
 
-    private static async Task<Results<NoContent, NotFound>> DeleteTaskID(ITaskRepository repository, int id)
+    private static async Task<Results<NoContent, ProblemHttpResult>> DeleteTaskID(ITaskRepository repository, int id)
     {
         var isDeleted = await repository.DeleteAsync(id);
-        return isDeleted ? TypedResults.NoContent(): TypedResults.NotFound();
+        return isDeleted ? TypedResults.NoContent(): TaskNotFound(id);
     }
 
-    private static async Task<Results<Created<TaskItem>, ValidationProblem>> CreateTask(ITaskRepository repository, PostTaskRequest title, IValidator<PostTaskRequest> validator)
+    private static async Task<Results<Created<TaskItem>, ValidationProblem>> CreateTask(ITaskRepository repository, PostTaskRequest request, IValidator<PostTaskRequest> validator)
     {
-        var validationResult = await validator.ValidateAsync(title);
+        var validationResult = await validator.ValidateAsync(request);
         if (!validationResult.IsValid)
             return TypedResults.ValidationProblem(validationResult.ToDictionary());
 
-        var createdTask = await repository.CreateAsync(title);
+        var createdTask = await repository.CreateAsync(request);
         return TypedResults.Created($"/tasks/{createdTask.Id}", createdTask);
     }
 
@@ -71,7 +71,7 @@ public static class TaskEndpoints
 
         var task = await repository.UpdateAsync(id, request);
         return task is null
-            ? TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.")
+            ? TaskNotFound(id)
             : TypedResults.Ok(task);
     }
 
@@ -84,7 +84,13 @@ public static class TaskEndpoints
         var task = await repository.PatchAsync(id, data);
 
         return task is null
-           ? TypedResults.Problem(statusCode: StatusCodes.Status404NotFound, title: "NotFound", detail: "Не удалось найти задачу.")
+           ? TaskNotFound(id)
            : TypedResults.Ok(task);
     }
+
+    private static ProblemHttpResult TaskNotFound(int id) =>
+    TypedResults.Problem(
+        statusCode: StatusCodes.Status404NotFound,
+        title: "Task not found",
+        detail: $"Задача с id {id} не найдена.");
 }
