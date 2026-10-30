@@ -8,6 +8,7 @@ REST API для управления списком задач.
 - PostgreSQL 17
 - Npgsql
 - Swagger / OpenAPI
+- FluentValidation
 
 ## Требования
 
@@ -92,8 +93,7 @@ dotnet run
 | POST | `/tasks` | Создать задачу |
 | PUT | `/tasks/{id}` | Обновить задачу |
 | DELETE | `/tasks/{id}` | Удалить задачу |
-| PATCH | `/tasks/{id}/rename` | Переименовать задачу |
-| PATCH | `/tasks/{id}/completion` | Изменить статус задачи |
+| PATCH | `/tasks/{id}` | Частично обновить задачу |
 
 ### Примеры запросов
 
@@ -120,15 +120,29 @@ curl -X 'POST' \
 curl -X 'DELETE' \
   'http://localhost:5004/tasks/3'
 ```
-  
+
+**Изменить задачу**
+
+```bash
+curl -X 'PATCH' \
+  'http://localhost:5004/tasks/3' \
+  -H 'Content-Type: application/json' \
+  -d '{"isCompleted": true}'
+```
+
 ### Структура проекта
 
 ```text
 task-management-api/
-├── Properties/       # Настройки запуска
-├── db/               # SQL-схема
-├── Models/           # DTO и сущности
-├── .editorconfig     # Настройки проекта
-├── Program.cs        # Точка входа
-└── README.md
+│───Common/           # Общие константы (например лимиты валидации)
+├───Endpoints/        # Эндпоинты /Tasks (Minimal API)
+├───Extensions/       # Вспомогательные методы
+├───Models/           # DTO и сущности
+├───Properties/       # Настройки запуска
+├───Repositories/     # Доступ к БД (интерфейс реализация на Npgsql)
+├───db/               # SQL-схема
+├───Validators/       # Валидация ввода
+├───.editorconfig     # Настройки проекта
+├───Program.cs        # Точка входа
+└───README.md
 ```
