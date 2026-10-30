@@ -79,7 +79,7 @@ public class NpgsqlTaskRepository : ITaskRepository
         await using var command = _dataSource.CreateCommand(
           """
             UPDATE public.tasks 
-            SET title = @title, is_completed = @isCompleted, updated_at = new()
+            SET title = @title, is_completed = @isCompleted, updated_at = now()
             WHERE id = @id 
             RETURNING id, title, is_completed, created_at, updated_at 
             """);
@@ -117,7 +117,7 @@ public class NpgsqlTaskRepository : ITaskRepository
 
         command.CommandText = $"""
             UPDATE public.tasks 
-            SET {string.Join(", ", sets)}, updated_at = new()
+            SET {string.Join(", ", sets)}, updated_at = now()
             WHERE id = @id 
             RETURNING id, title, is_completed, created_at, updated_at 
             """;
