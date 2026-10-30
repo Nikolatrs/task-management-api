@@ -134,7 +134,7 @@ curl -X 'PATCH' \
 
 ```text
 task-management-api/
-│───Common/           # Общие Константы (например лимиты валидации)
+│───Common/           # Общие константы (например лимиты валидации)
 ├───Endpoints/        # Эндпоинты /Tasks (Minimal API)
 ├───Extensions/       # Вспомогательные методы
 ├───Models/           # DTO и сущности
