@@ -13,23 +13,21 @@ public static class TaskEndpoints
 
         tasks.MapGet("/", GetAllTasks).WithName("GetAllTasks");
         tasks.MapGet("/{id:int}", GetTaskById).WithName("GetTaskById");
-        tasks.MapDelete("/{id:int}", DeleteTaskID).WithName("DeleteTaskID");
+        tasks.MapDelete("/{id:int}", DeleteTaskById).WithName("DeleteTaskById");
 
         tasks.MapPost("/", CreateTask)
             .WithName("CreateTask")
-            .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status500InternalServerError);
+            .ProducesValidationProblem();
+
 
         tasks.MapPut("/{id:int}", UpdateTask)
             .WithName("UpdateTask")
             .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         tasks.MapPatch("/{id:int}", PatchTask)
             .WithName("PatchTask")
             .ProducesValidationProblem()
-            .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
@@ -47,10 +45,10 @@ public static class TaskEndpoints
         return task is null ? TaskNotFound(id) : TypedResults.Ok(task);
     }
 
-    private static async Task<Results<NoContent, ProblemHttpResult>> DeleteTaskID(ITaskRepository repository, int id)
+    private static async Task<Results<NoContent, ProblemHttpResult>> DeleteTaskById(ITaskRepository repository, int id)
     {
-        var isDeleted = await repository.DeleteAsync(id);
-        return isDeleted ? TypedResults.NoContent(): TaskNotFound(id);
+        var isDeleted = await repository.DeleteByIdAsync(id);
+        return isDeleted ? TypedResults.NoContent() : TaskNotFound(id);
     }
 
     private static async Task<Results<Created<TaskItem>, ValidationProblem>> CreateTask(ITaskRepository repository, PostTaskRequest request, IValidator<PostTaskRequest> validator)

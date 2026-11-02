@@ -47,7 +47,7 @@ public class NpgsqlTaskRepository : ITaskRepository
         return null;
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteByIdAsync(int id)
     {
         await using var command = _dataSource.CreateCommand(
             """
