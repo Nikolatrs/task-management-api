@@ -95,7 +95,7 @@ public class NpgsqlTaskRepository : ITaskRepository
         }
         return null;
     }
-    
+
     public async Task<TaskItem?> PatchAsync(int id, PatchTaskRequest request)
     {
         var sets = new List<string>();
