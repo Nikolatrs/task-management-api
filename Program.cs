@@ -14,7 +14,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
+builder.Services.AddSingleton<NpgsqlDataSource>(_ => NpgsqlDataSource.Create(connectionString));
 builder.Services.AddProblemDetails();
 builder.Services.AddScoped<ITaskRepository, NpgsqlTaskRepository>();
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
